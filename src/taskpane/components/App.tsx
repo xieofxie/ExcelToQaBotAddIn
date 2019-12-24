@@ -1,11 +1,11 @@
 import * as React from "react";
+import axios from "axios";
 import Progress from "./Progress";
 import { DirectLine } from 'botframework-directlinejs';
 import ReactWebChat, { createStore } from 'botframework-webchat';
-import Config from '../models/Config';
-import Event from '../models/Event';
-import QnAMakerEndpoint from '../models/QnAMakerEndpoint';
-import Status from '../models/Status';
+import { Config, Status } from '../models/Config';
+import { Event, QnAMakerEndpoint } from '../models/Event';
+import { QnADTO, Source } from "../models/QnAMaker";
 /* global Button, console, Excel, Header, HeroList, HeroListItem, Progress */
 
 export interface AppProps {
@@ -22,10 +22,13 @@ export default class App extends React.Component<AppProps, AppState> {
 
   tempUserId = 'TempUserId';
   toDispatch = [];
+  buttonSyncConfig = 'SyncConfig';
+  buttonSyncQAs = 'SyncQAs';
+  buttonSyncQA = 'SyncQA';
 
   store = createStore();
 
-  constructor(props, context) {
+  constructor(props: AppProps, context: any) {
     super(props, context);
     this.state = {
       token: '',
@@ -33,7 +36,7 @@ export default class App extends React.Component<AppProps, AppState> {
     };
   }
 
-  addDebug(error) {
+  addDebug(error: any) {
     this.setState({debugstring: this.state.debugstring.concat(String(error))});
   }
 
@@ -41,7 +44,11 @@ export default class App extends React.Component<AppProps, AppState> {
     this.setState({debugstring: []});
   }
 
-  pushEvent(name, value) {
+  clickClearDebug = async () => {
+    this.clearDebug();
+  };
+
+  pushEvent(name: string, value: any) {
     this.toDispatch.push({
       type: 'WEB_CHAT/SEND_EVENT',
       payload: {name: name, value: value}
@@ -50,11 +57,24 @@ export default class App extends React.Component<AppProps, AppState> {
     this.addDebug(`${name}:${value}`);
   }
 
-  clickClearDebug = async () => {
-    this.clearDebug();
+  disableButton(name: string, disable: boolean) {
+    (document.getElementById(name) as HTMLButtonElement).disabled = disable;
   }
 
-  componentDidMount() {
+  async getOneConfig(context: Excel.RequestContext, config: string) {
+    const configSheet = context.workbook.worksheets.getFirst();
+    const configRange = configSheet.getUsedRange();
+    configRange.load("values");
+
+    await context.sync();
+
+    for (let i = 0;i < configRange.values.length;++i) {
+      let element = configRange.values[i];
+      if (element.length < 2) continue;
+      if (String(element[0]).toLowerCase() == config) {
+        return element[1];
+      }
+    }
   }
 
   getTokenId = async () => {
@@ -65,30 +85,18 @@ export default class App extends React.Component<AppProps, AppState> {
       }
 
       await Excel.run(async context => {
-        const configSheet = context.workbook.worksheets.getFirst();
-        const configRange = configSheet.getUsedRange();
-        configRange.load("values");
-
-        await context.sync();
-
-        for (let i = 0;i < configRange.values.length;++i) {
-          let element = configRange.values[i];
-          if (element.length < 2) continue;
-          if (String(element[0]).toLowerCase() == Config.Token) {
-            this.setState({ token: String(element[1]) });
-            this.addDebug(String(element[1]));
-            break;
-          }
-        }
+        let token = String(await this.getOneConfig(context, Config.Token));
+        this.setState({ token: token });
+        this.addDebug(token);
       });
     } catch (error) {
       this.addDebug(error);
     }
-  }
+  };
 
   clickSyncConfig = async() => {
     try {
-      (document.getElementById('SyncConfig') as HTMLButtonElement).disabled = true;
+      this.disableButton(this.buttonSyncConfig, true);
 
       await Excel.run(async context => {
         const configSheet = context.workbook.worksheets.getFirst();
@@ -120,16 +128,16 @@ export default class App extends React.Component<AppProps, AppState> {
           }
         });
         if (!pushed) {
-          (document.getElementById('SyncConfig') as HTMLButtonElement).disabled = false;
+          this.disableButton(this.buttonSyncConfig, false);
         }
       });
     } catch (error) {
       this.addDebug(error);
     }
-  }
+  };
 
-  clickSyncQA = async () => {
-    (document.getElementById('SyncQA') as HTMLButtonElement).disabled = true;
+  clickSyncQAs = async () => {
+    this.disableButton(this.buttonSyncQAs, true);
 
     try {
       await Excel.run(async context => {
@@ -165,7 +173,7 @@ export default class App extends React.Component<AppProps, AppState> {
               case Config.Id:
                 endpoint.KnowledgeBaseId = String(ele[1]);
                 break;
-              case Config.key:
+              case Config.Key:
                 endpoint.EndpointKey = String(ele[1]);
                 break;
               case Config.Host:
@@ -186,8 +194,88 @@ export default class App extends React.Component<AppProps, AppState> {
         if (qaList.length > 0) {
           this.pushEvent(Event.SetQnA, qaList);
         } else {
-          (document.getElementById('SyncQA') as HTMLButtonElement).disabled = false;
+          this.disableButton(this.buttonSyncQAs, false);
         }
+      });
+    } catch (error) {
+      this.addDebug(error);
+    }
+  };
+
+  clickSyncQA = async () => {
+    this.disableButton(this.buttonSyncQA, true);
+    try {
+      await Excel.run(async context => {
+        let sheet = context.workbook.worksheets.getActiveWorksheet();
+        sheet.load('position');
+
+        await context.sync();
+
+        if (sheet.position == 0) return;
+        let range = sheet.getUsedRange();
+        range.load('values');
+
+        await context.sync();
+
+        let data = new Map<string, QnADTO>();
+        let dataStart = false;
+        let id = null;
+        let lastKey: string = null;
+        range.values.forEach(element => {
+          if (element.length < 2) return;
+          // value is question, key is answer
+          let value = String(element[0]);
+          let key = String(element[1]);
+          switch (value.toLowerCase()) {
+            case Config.Id:
+              id = key;
+              break;
+            case "":
+              // TODO use blank to separate config and data
+              dataStart = true;
+              return;
+          }
+          if (!dataStart) return;
+          
+          // use last answer if empty
+          if (key == "") {
+            key = lastKey;
+          }
+          if (data.has(key)) {
+            data.get(key).questions.push(value);
+          } else {
+            data.set(key, new QnADTO(key, Source.Editorial, value));
+          }
+          lastKey = key;
+        });
+        if (data.size == 0) {
+          this.disableButton(this.buttonSyncQA, false);
+          return;
+        }
+        this.addDebug(data.size);
+
+        let key = String(await this.getOneConfig(context, Config.Key));
+        const url = `https://westus.api.cognitive.microsoft.com/qnamaker/v4.0/knowledgebases/${id}`;
+        let response = await axios.put(url,
+          {
+            "qnAList": Array.from(data.values())
+          },
+          { 
+            headers: {
+              'Content-Type': 'application/json',
+              'Ocp-Apim-Subscription-Key': key
+            }
+          });
+        this.addDebug(response.status);
+        response = await axios.post(url,
+          {},
+          { 
+            headers: {
+              'Ocp-Apim-Subscription-Key': key
+            }
+          });
+        this.addDebug(response.status);
+        this.disableButton(this.buttonSyncQA, false);
       });
     } catch (error) {
       this.addDebug(error);
@@ -199,8 +287,8 @@ export default class App extends React.Component<AppProps, AppState> {
       this.store.dispatch(element);
     });
     this.toDispatch = [];
-    (document.getElementById('SyncConfig') as HTMLButtonElement).disabled = false;
-    (document.getElementById('SyncQA') as HTMLButtonElement).disabled = false;
+    this.disableButton(this.buttonSyncConfig, false);
+    this.disableButton(this.buttonSyncQAs, false);
   };
 
   render() {
@@ -221,8 +309,9 @@ export default class App extends React.Component<AppProps, AppState> {
           return (<p>{index}: {value}</p>)
         })}</div>
         <div>
-          <button id='SyncConfig' onClick={this.clickSyncConfig}>Sync Config</button>
-          <button id='SyncQA' onClick={this.clickSyncQA}>Sync QA</button>
+          <button id={this.buttonSyncConfig} onClick={this.clickSyncConfig}>Sync Config</button>
+          <button id={this.buttonSyncQAs} onClick={this.clickSyncQAs}>Sync QAs</button>
+          <button id={this.buttonSyncQA} onClick={this.clickSyncQA}>Sync QA</button>
           <button id='DoSync' onClick={this.clickDoSync}>Do Sync</button>
         </div>
         {this.state.token &&

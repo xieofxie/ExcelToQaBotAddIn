@@ -1,4 +1,4 @@
-export default class Config {
+export class Config {
     //static Config: string = "config";
 
     static Token: string = "token";
@@ -9,6 +9,10 @@ export default class Config {
 
     static Status: string = "status";
     static Id: string = "id";
-    static key: string = "key";
+    static Key: string = "key";
     static Host: string = "host";
+}
+
+export class Status {
+    static Enable: string = "enable";
 }
