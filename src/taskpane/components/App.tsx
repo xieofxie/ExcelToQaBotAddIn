@@ -2,6 +2,10 @@ import * as React from "react";
 import Progress from "./Progress";
 import { DirectLine } from 'botframework-directlinejs';
 import ReactWebChat, { createStore } from 'botframework-webchat';
+import Config from '../models/Config';
+import Event from '../models/Event';
+import QnAMakerEndpoint from '../models/QnAMakerEndpoint';
+import Status from '../models/Status';
 /* global Button, console, Excel, Header, HeroList, HeroListItem, Progress */
 
 export interface AppProps {
@@ -11,28 +15,8 @@ export interface AppProps {
 
 export interface AppState {
   token: string;
-  debugstring: string;
+  debugstring: string[];
 }
-
-class QnAMakerEndpoint {
-  KnowledgeBaseId;
-  EndpointKey;
-  Host;
-
-  constructor(id, key, host) {
-    this.KnowledgeBaseId = id;
-    this.EndpointKey = key;
-    this.Host = host;
-  }
-}
-
-const SetQnA = "SetQnA";
-
-const SetResultNumber = "SetResultNumber";
-
-//const SetMinScore = "SetMinScore";
-
-const SetNoResultResponse = "SetNoResultResponse";
 
 export default class App extends React.Component<AppProps, AppState> {
 
@@ -45,17 +29,25 @@ export default class App extends React.Component<AppProps, AppState> {
     super(props, context);
     this.state = {
       token: '',
-      debugstring: ''
+      debugstring: []
     };
   }
 
   addDebug(error) {
-    const debugstring = this.state.debugstring == '' ? `${error}` : this.state.debugstring + `\n${error}`;
-    this.setState({debugstring: debugstring});
+    this.setState({debugstring: this.state.debugstring.concat(String(error))});
   }
 
   clearDebug() {
-    this.setState({debugstring: ""});
+    this.setState({debugstring: []});
+  }
+
+  pushEvent(name, value) {
+    this.toDispatch.push({
+      type: 'WEB_CHAT/SEND_EVENT',
+      payload: {name: name, value: value}
+    });
+
+    this.addDebug(`${name}:${value}`);
   }
 
   clickClearDebug = async () => {
@@ -74,13 +66,20 @@ export default class App extends React.Component<AppProps, AppState> {
 
       await Excel.run(async context => {
         const configSheet = context.workbook.worksheets.getFirst();
-        const configRange = configSheet.getRange("B1");
+        const configRange = configSheet.getUsedRange();
         configRange.load("values");
 
         await context.sync();
 
-        this.setState({ token: String(configRange.values[0][0]) });
-        this.addDebug(configRange.values[0][0]);
+        for (let i = 0;i < configRange.values.length;++i) {
+          let element = configRange.values[i];
+          if (element.length < 2) continue;
+          if (String(element[0]).toLowerCase() == Config.Token) {
+            this.setState({ token: String(element[1]) });
+            this.addDebug(String(element[1]));
+            break;
+          }
+        }
       });
     } catch (error) {
       this.addDebug(error);
@@ -89,22 +88,40 @@ export default class App extends React.Component<AppProps, AppState> {
 
   clickSyncConfig = async() => {
     try {
+      (document.getElementById('SyncConfig') as HTMLButtonElement).disabled = true;
+
       await Excel.run(async context => {
         const configSheet = context.workbook.worksheets.getFirst();
-        const configRange = configSheet.getRange("B2:B3");
+        const configRange = configSheet.getUsedRange();
         configRange.load("values");
 
         await context.sync();
 
-        this.toDispatch.push({
-          type: 'WEB_CHAT/SEND_EVENT',
-          payload: { name: SetResultNumber, value: Number(configRange.values[0][0]) }
+        let pushed = false;
+        configRange.values.forEach(element => {
+          if (element.length < 2) return;
+          switch (String(element[0]).toLowerCase()) {
+            case Config.ResultNumber:
+              this.pushEvent(Event.SetResultNumber, Number(element[1]));
+              pushed = true;
+              break;
+            case Config.NoResultResponse:
+              this.pushEvent(Event.SetNoResultResponse, String(element[1]));
+              pushed = true;
+              break;
+            case Config.MinScore:
+              this.pushEvent(Event.SetMinScore, Number(element[1]));
+              pushed = true;
+              break;
+            case Config.Debug:
+              this.pushEvent(Event.SetDebug, Boolean(element[1]));
+              pushed = true;
+              break;
+          }
         });
-        this.toDispatch.push({
-          type: 'WEB_CHAT/SEND_EVENT',
-          payload: { name: SetNoResultResponse, value: String(configRange.values[1][0]) }
-        });
-        this.addDebug(`${configRange.values[0][0]},${configRange.values[1][0]}`);
+        if (!pushed) {
+          (document.getElementById('SyncConfig') as HTMLButtonElement).disabled = false;
+        }
       });
     } catch (error) {
       this.addDebug(error);
@@ -112,6 +129,8 @@ export default class App extends React.Component<AppProps, AppState> {
   }
 
   clickSyncQA = async () => {
+    (document.getElementById('SyncQA') as HTMLButtonElement).disabled = true;
+
     try {
       await Excel.run(async context => {
         context.workbook.worksheets.load("items");
@@ -123,7 +142,8 @@ export default class App extends React.Component<AppProps, AppState> {
           if (index == 0) {
             return;
           }
-          let range = element.getRange("B1:B4");
+          // TODO max 4 lines
+          let range = element.getRange("A1:B4");
           range.load("values");
           allRanges.push(range);
         });
@@ -132,18 +152,42 @@ export default class App extends React.Component<AppProps, AppState> {
 
         let qaList = [];
         allRanges.forEach(element => {
-          if (String(element.values[0][0]).toLowerCase() != "enable") {
-            return;
+          let enabled: boolean = false;
+          let endpoint = new QnAMakerEndpoint();
+
+          for (let i = 0;i < element.values.length;++i) {
+            let ele = element.values[i];
+            // TODO break when blank line
+            if (ele.length < 2 || String(ele[0]) == "") {
+              break;
+            }
+            switch (String(ele[0]).toLowerCase()) {
+              case Config.Id:
+                endpoint.KnowledgeBaseId = String(ele[1]);
+                break;
+              case Config.key:
+                endpoint.EndpointKey = String(ele[1]);
+                break;
+              case Config.Host:
+                endpoint.Host = String(ele[1]);
+                break;
+              case Config.Status:
+                if (String(ele[1]).toLowerCase() == Status.Enable) {
+                  enabled = true;
+                }
+                break;
+            }
           }
-          qaList.push(new QnAMakerEndpoint(String(element.values[1][0]), String(element.values[2][0]), String(element.values[3][0])));
+
+          if (enabled) {
+            qaList.push(endpoint);
+          }
         });
         if (qaList.length > 0) {
-          this.toDispatch.push({
-            type: 'WEB_CHAT/SEND_EVENT',
-            payload: { name: SetQnA, value: qaList }
-          })
+          this.pushEvent(Event.SetQnA, qaList);
+        } else {
+          (document.getElementById('SyncQA') as HTMLButtonElement).disabled = false;
         }
-        this.addDebug(qaList.length);
       });
     } catch (error) {
       this.addDebug(error);
@@ -154,6 +198,9 @@ export default class App extends React.Component<AppProps, AppState> {
     this.toDispatch.forEach(element => {
       this.store.dispatch(element);
     });
+    this.toDispatch = [];
+    (document.getElementById('SyncConfig') as HTMLButtonElement).disabled = false;
+    (document.getElementById('SyncQA') as HTMLButtonElement).disabled = false;
   };
 
   render() {
@@ -170,11 +217,13 @@ export default class App extends React.Component<AppProps, AppState> {
     return (
       <div className="ms-welcome">
         <div>Debug<button onClick={this.clickClearDebug}>Clear Debug</button></div>
-        <div><p>{this.state.debugstring}</p></div>
+        <div>{this.state.debugstring.map((value, index) => {
+          return (<p>{index}: {value}</p>)
+        })}</div>
         <div>
-          <button onClick={this.clickSyncConfig}>Sync Config</button>
-          <button onClick={this.clickSyncQA}>Sync QA</button>
-          <button onClick={this.clickDoSync}>Do Sync</button>
+          <button id='SyncConfig' onClick={this.clickSyncConfig}>Sync Config</button>
+          <button id='SyncQA' onClick={this.clickSyncQA}>Sync QA</button>
+          <button id='DoSync' onClick={this.clickDoSync}>Do Sync</button>
         </div>
         {this.state.token &&
           <ReactWebChat directLine={new DirectLine({ token: this.state.token })} userID={this.tempUserId} store={this.store}/>
