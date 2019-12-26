@@ -2,7 +2,7 @@ import * as React from "react";
 import axios from "axios";
 import Progress from "./Progress";
 import { DirectLine } from 'botframework-directlinejs';
-import ReactWebChat, { createStore } from 'botframework-webchat';
+import ReactWebChat from 'botframework-webchat';
 import { Config, Status } from '../models/Config';
 import { Event, QnAMakerEndpoint } from '../models/Event';
 import { QnADTO, Source } from "../models/QnAMaker";
@@ -11,6 +11,7 @@ import { QnADTO, Source } from "../models/QnAMaker";
 export interface AppProps {
   title: string;
   isOfficeInitialized: boolean;
+  store: any;
 }
 
 export interface AppState {
@@ -25,8 +26,6 @@ export default class App extends React.Component<AppProps, AppState> {
   buttonSyncConfig = 'SyncConfig';
   buttonSyncQAs = 'SyncQAs';
   buttonSyncQA = 'SyncQA';
-
-  store = createStore();
 
   constructor(props: AppProps, context: any) {
     super(props, context);
@@ -131,6 +130,9 @@ export default class App extends React.Component<AppProps, AppState> {
           this.disableButton(this.buttonSyncConfig, false);
         }
       });
+
+      // TODO why
+      setTimeout(() => {this.clickDoSync()}, 1000);
     } catch (error) {
       this.addDebug(error);
     }
@@ -197,6 +199,9 @@ export default class App extends React.Component<AppProps, AppState> {
           this.disableButton(this.buttonSyncQAs, false);
         }
       });
+
+      // TODO why
+      setTimeout(() => {this.clickDoSync()}, 1000);
     } catch (error) {
       this.addDebug(error);
     }
@@ -284,7 +289,7 @@ export default class App extends React.Component<AppProps, AppState> {
 
   clickDoSync = async () => {
     this.toDispatch.forEach(element => {
-      this.store.dispatch(element);
+      this.props.store.dispatch(element);
     });
     this.toDispatch = [];
     this.disableButton(this.buttonSyncConfig, false);
@@ -292,7 +297,7 @@ export default class App extends React.Component<AppProps, AppState> {
   };
 
   render() {
-    const { title, isOfficeInitialized } = this.props;
+    const { title, isOfficeInitialized, store } = this.props;
 
     if (!isOfficeInitialized) {
       return (
@@ -315,7 +320,7 @@ export default class App extends React.Component<AppProps, AppState> {
           <button id='DoSync' onClick={this.clickDoSync}>Do Sync</button>
         </div>
         {this.state.token &&
-          <ReactWebChat directLine={new DirectLine({ token: this.state.token })} userID={this.tempUserId} store={this.store}/>
+          <ReactWebChat directLine={new DirectLine({ token: this.state.token })} userID={this.tempUserId} store={store}/>
         }
       </div>
     );

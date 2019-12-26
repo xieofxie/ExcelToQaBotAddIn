@@ -78,3 +78,7 @@
 b {
     font-weight: bold;
 }
+
+#DoSync {
+    display: none;
+}
