@@ -3,7 +3,7 @@ import axios from "axios";
 import Progress from "./Progress";
 import { DirectLine } from 'botframework-directlinejs';
 import ReactWebChat from 'botframework-webchat';
-import { Config, Status } from '../models/Config';
+import { ConfigKeys, Status } from '../models/Config';
 import { Event, QnAMakerEndpoint } from '../models/Event';
 import { QnADTO, Source } from "../models/QnAMaker";
 /* global Button, console, Excel, Header, HeroList, HeroListItem, Progress */
@@ -15,7 +15,7 @@ export interface AppProps {
 }
 
 export interface AppState {
-  token: string;
+  webChatToken: string;
   debugstring: string[];
 }
 
@@ -30,7 +30,7 @@ export default class App extends React.Component<AppProps, AppState> {
   constructor(props: AppProps, context: any) {
     super(props, context);
     this.state = {
-      token: '',
+      webChatToken: '',
       debugstring: []
     };
   }
@@ -60,32 +60,32 @@ export default class App extends React.Component<AppProps, AppState> {
     (document.getElementById(name) as HTMLButtonElement).disabled = disable;
   }
 
-  async getOneConfig(context: Excel.RequestContext, config: string) {
+  async getConfig(context: Excel.RequestContext) {
     const configSheet = context.workbook.worksheets.getFirst();
     const configRange = configSheet.getUsedRange();
     configRange.load("values");
 
     await context.sync();
 
+    let result = new Map();
     for (let i = 0;i < configRange.values.length;++i) {
       let element = configRange.values[i];
       if (element.length < 2) continue;
-      if (String(element[0]).toLowerCase() == config) {
-        return element[1];
-      }
+      result.set(String(element[0]).toLowerCase(), element[1]);
     }
+    return result;
   }
 
   getTokenId = async () => {
     try {
       // TODO why?
-      if (this.state.token != '') {
+      if (this.state.webChatToken != '') {
         return;
       }
 
       await Excel.run(async context => {
-        let token = String(await this.getOneConfig(context, Config.Token));
-        this.setState({ token: token });
+        let token = String((await this.getConfig(context)).get(ConfigKeys.WebChatToken));
+        this.setState({ webChatToken: token });
         this.addDebug(token);
       });
     } catch (error) {
@@ -98,30 +98,25 @@ export default class App extends React.Component<AppProps, AppState> {
       this.disableButton(this.buttonSyncConfig, true);
 
       await Excel.run(async context => {
-        const configSheet = context.workbook.worksheets.getFirst();
-        const configRange = configSheet.getUsedRange();
-        configRange.load("values");
-
-        await context.sync();
+        let config = await this.getConfig(context);
 
         let pushed = false;
-        configRange.values.forEach(element => {
-          if (element.length < 2) return;
-          switch (String(element[0]).toLowerCase()) {
-            case Config.ResultNumber:
-              this.pushEvent(Event.SetResultNumber, Number(element[1]));
+        config.forEach((value, key) => {
+          switch (key) {
+            case ConfigKeys.ResultNumber:
+              this.pushEvent(Event.SetResultNumber, Number(value));
               pushed = true;
               break;
-            case Config.NoResultResponse:
-              this.pushEvent(Event.SetNoResultResponse, String(element[1]));
+            case ConfigKeys.NoResultResponse:
+              this.pushEvent(Event.SetNoResultResponse, String(value));
               pushed = true;
               break;
-            case Config.MinScore:
-              this.pushEvent(Event.SetMinScore, Number(element[1]));
+            case ConfigKeys.MinScore:
+              this.pushEvent(Event.SetMinScore, Number(value));
               pushed = true;
               break;
-            case Config.Debug:
-              this.pushEvent(Event.SetDebug, Boolean(element[1]));
+            case ConfigKeys.Debug:
+              this.pushEvent(Event.SetDebug, Boolean(value));
               pushed = true;
               break;
           }
@@ -160,10 +155,14 @@ export default class App extends React.Component<AppProps, AppState> {
 
         await context.sync();
 
+        let config = await this.getConfig(context);
+
         let qaList = [];
         allRanges.forEach(element => {
           let enabled: boolean = false;
           let endpoint = new QnAMakerEndpoint();
+          endpoint.EndpointKey = config.get(ConfigKeys.EndpointKey);
+          endpoint.Host = config.get(ConfigKeys.Host);
 
           for (let i = 0;i < element.values.length;++i) {
             let ele = element.values[i];
@@ -172,16 +171,10 @@ export default class App extends React.Component<AppProps, AppState> {
               break;
             }
             switch (String(ele[0]).toLowerCase()) {
-              case Config.Id:
+              case ConfigKeys.Id:
                 endpoint.KnowledgeBaseId = String(ele[1]);
                 break;
-              case Config.Key:
-                endpoint.EndpointKey = String(ele[1]);
-                break;
-              case Config.Host:
-                endpoint.Host = String(ele[1]);
-                break;
-              case Config.Status:
+              case ConfigKeys.Status:
                 if (String(ele[1]).toLowerCase() == Status.Enable) {
                   enabled = true;
                 }
@@ -232,7 +225,7 @@ export default class App extends React.Component<AppProps, AppState> {
           let value = String(element[0]);
           let key = String(element[1]);
           switch (value.toLowerCase()) {
-            case Config.Id:
+            case ConfigKeys.Id:
               id = key;
               break;
             case "":
@@ -259,7 +252,7 @@ export default class App extends React.Component<AppProps, AppState> {
         }
         this.addDebug(data.size);
 
-        let key = String(await this.getOneConfig(context, Config.Key));
+        let key = String((await this.getConfig(context)).get(ConfigKeys.SubscriptionKey));
         const url = `https://westus.api.cognitive.microsoft.com/qnamaker/v4.0/knowledgebases/${id}`;
         let response = await axios.put(url,
           {
@@ -319,8 +312,8 @@ export default class App extends React.Component<AppProps, AppState> {
           <button id={this.buttonSyncQA} onClick={this.clickSyncQA}>Sync QA</button>
           <button id='DoSync' onClick={this.clickDoSync}>Do Sync</button>
         </div>
-        {this.state.token &&
-          <ReactWebChat directLine={new DirectLine({ token: this.state.token })} userID={this.tempUserId} store={store}/>
+        {this.state.webChatToken &&
+          <ReactWebChat directLine={new DirectLine({ token: this.state.webChatToken })} userID={this.tempUserId} store={store}/>
         }
       </div>
     );
