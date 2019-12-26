@@ -26,6 +26,8 @@ export default class App extends React.Component<AppProps, AppState> {
   buttonSyncConfig = 'SyncConfig';
   buttonSyncQAs = 'SyncQAs';
   buttonSyncQA = 'SyncQA';
+  buttonCreateQA = "CreateQA";
+  newQAName = "New QA";
 
   constructor(props: AppProps, context: any) {
     super(props, context);
@@ -53,7 +55,7 @@ export default class App extends React.Component<AppProps, AppState> {
       payload: {name: name, value: value}
     });
 
-    this.addDebug(`${name}:${value}`);
+    // this.addDebug(`${name}:${value}`);
   }
 
   disableButton(name: string, disable: boolean) {
@@ -206,14 +208,14 @@ export default class App extends React.Component<AppProps, AppState> {
       await Excel.run(async context => {
         let sheet = context.workbook.worksheets.getActiveWorksheet();
         sheet.load('position');
+        sheet.load('name');
 
-        await context.sync();
-
-        if (sheet.position == 0) return;
         let range = sheet.getUsedRange();
         range.load('values');
 
         await context.sync();
+
+        if (sheet.position == 0) return;
 
         let data = new Map<string, QnADTO>();
         let dataStart = false;
@@ -247,10 +249,9 @@ export default class App extends React.Component<AppProps, AppState> {
           lastKey = key;
         });
         if (data.size == 0) {
-          this.disableButton(this.buttonSyncQA, false);
           return;
         }
-        this.addDebug(data.size);
+        this.addDebug(`Total QA: ${data.size}`);
 
         let key = String((await this.getConfig(context)).get(ConfigKeys.SubscriptionKey));
         const url = `https://westus.api.cognitive.microsoft.com/qnamaker/v4.0/knowledgebases/${id}`;
@@ -264,7 +265,7 @@ export default class App extends React.Component<AppProps, AppState> {
               'Ocp-Apim-Subscription-Key': key
             }
           });
-        this.addDebug(response.status);
+        this.addDebug(`Replacing data status: ${response.status}. Wait for publishing..`);
         response = await axios.post(url,
           {},
           { 
@@ -272,21 +273,97 @@ export default class App extends React.Component<AppProps, AppState> {
               'Ocp-Apim-Subscription-Key': key
             }
           });
-        this.addDebug(response.status);
-        this.disableButton(this.buttonSyncQA, false);
+        this.addDebug(`Publishing status: ${response.status}. Wait for updating name..`);
+        response = await axios.patch(url,
+          {
+            "update": {
+              "name": sheet.name
+            }
+          },
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              'Ocp-Apim-Subscription-Key': key
+            }
+          });
+        this.addDebug(`Updating status: ${response.status}.`);
       });
+
+      this.disableButton(this.buttonSyncQA, false);
     } catch (error) {
       this.addDebug(error);
     }
   };
 
+  clickCreateQA = async () => {
+    this.disableButton(this.buttonCreateQA, true);
+    try {
+      await Excel.run(async context => {
+        let config = await this.getConfig(context);
+
+        const url = `https://westus.api.cognitive.microsoft.com/qnamaker/v4.0/knowledgebases/create`;
+        let response = await axios.post(url,
+          {
+            "name": this.newQAName
+          },
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              'Ocp-Apim-Subscription-Key': String(config.get(ConfigKeys.SubscriptionKey))
+            }
+          });
+        this.addDebug(`Creating status: ${response.status}. Wait for finishing..`);
+        this.checkCreateQA(config, response.data.operationId);
+      });
+    } catch(error) {
+      this.addDebug(error);
+    }
+  };
+
+  async checkCreateQA(config: Map<any, any>, operationId: string) {
+    const url = `https://westus.api.cognitive.microsoft.com/qnamaker/v4.0/operations/${operationId}`;
+    let response = await axios.get(url,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Ocp-Apim-Subscription-Key': String(config.get(ConfigKeys.SubscriptionKey))
+        }
+      });
+    if (response.data.operationState != 'Succeeded') {
+      setTimeout(() => { this.checkCreateQA(config, operationId); }, 1000);
+      return;
+    }
+
+    try {
+      await Excel.run(async context => {
+        let id = String(response.data.resourceLocation).split('/')[2];
+
+        let sheet = context.workbook.worksheets.add(this.newQAName);
+        let range = sheet.getRange("A1:B2");
+        range.values = [[ConfigKeys.Status, "disable"],[ConfigKeys.Id, id]];
+        sheet.activate();
+
+        await context.sync();
+
+        this.addDebug(`Finishing status ${response.status}. Add QAs and click 'Sync QA' for the new QA.`);
+      });
+
+      this.disableButton(this.buttonCreateQA, false);
+    } catch (error) {
+      this.addDebug(error);
+    }
+  }
+
   clickDoSync = async () => {
+    // const toDispatch = this.toDispatch.length;
     this.toDispatch.forEach(element => {
       this.props.store.dispatch(element);
     });
     this.toDispatch = [];
     this.disableButton(this.buttonSyncConfig, false);
     this.disableButton(this.buttonSyncQAs, false);
+    // TODO why?
+    // setTimeout(() => {this.addDebug(`Sent ${toDispatch} configs.`);}, 1000);
   };
 
   render() {
@@ -310,6 +387,7 @@ export default class App extends React.Component<AppProps, AppState> {
           <button id={this.buttonSyncConfig} onClick={this.clickSyncConfig}>Sync Config</button>
           <button id={this.buttonSyncQAs} onClick={this.clickSyncQAs}>Sync QAs</button>
           <button id={this.buttonSyncQA} onClick={this.clickSyncQA}>Sync QA</button>
+          <button id={this.buttonCreateQA} onClick={this.clickCreateQA}>Create QA</button>
           <button id='DoSync' onClick={this.clickDoSync}>Do Sync</button>
         </div>
         {this.state.webChatToken &&
