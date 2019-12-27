@@ -2,7 +2,7 @@ export class ConfigKeys {
     //static Config: string = "config";
 
     static ResultNumber: string = "resultnumber";
-    static NoResultResponse: string = "noresultresponse";
+    static AnswerLg: string = "answerlg";
     static MinScore: string = "minscore";
     static Debug: string = "debug";
     static WebChatToken: string = "webchattoken";

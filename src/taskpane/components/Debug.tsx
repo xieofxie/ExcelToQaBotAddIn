@@ -4,21 +4,21 @@ import {Collapse} from 'react-collapse';
 import { Element } from 'react-scroll'
 import {v1 as uuid} from 'uuid';
 
-export interface AppProps {
+export interface DebugProps {
     debugString: string[];
     clearCb: Function;
 }
 
-interface AppState {
+interface DebugState {
     isOpened: boolean;
     // TODO tired of finding working resizable
     height: number;
 }
 
-export class Debug extends React.Component<AppProps, AppState> {
+export class Debug extends React.Component<DebugProps, DebugState> {
     uuid: string;
 
-    constructor(props: AppProps, context: any) {
+    constructor(props: DebugProps, context: any) {
         super(props, context);
         this.state = {
             isOpened: true,
@@ -31,12 +31,9 @@ export class Debug extends React.Component<AppProps, AppState> {
         this.props.clearCb();
     };
 
-    componentDidMount() {
-    }
-
-    renderItem(index) {
+    renderItem = (index) => {
         return (<p>{index}: {this.props.debugString[index]}</p>)
-    }
+    };
 
     render() {
         const {isOpened, height} = this.state;

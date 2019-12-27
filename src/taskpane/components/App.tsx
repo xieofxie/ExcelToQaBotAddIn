@@ -8,6 +8,7 @@ import { Event, QnAMakerEndpoint } from '../models/Event';
 import { QnADTO, Source } from "../models/QnAMaker";
 import { Debug } from "./Debug";
 import { LgEditor } from "./LgEditor";
+import { getConfig } from "../utils/Utils";
 /* global Button, console, Excel, Header, HeroList, HeroListItem, Progress */
 
 export interface AppProps {
@@ -25,6 +26,7 @@ export default class App extends React.Component<AppProps, AppState> {
 
   tempUserId = 'TempUserId';
   toDispatch = [];
+  toEnable = new Set<string>();
   buttonSyncConfig = 'SyncConfig';
   buttonSyncQAs = 'SyncQAs';
   buttonSyncQA = 'SyncQA';
@@ -39,41 +41,31 @@ export default class App extends React.Component<AppProps, AppState> {
     };
   }
 
-  addDebug(error: any) {
-    this.setState({debugstring: this.state.debugstring.concat(String(error))});
-  }
+  addDebug = (error: any) => {
+    const newDebugString = this.state.debugstring.concat(String(error));
+    this.setState({debugstring: newDebugString});
+  };
 
-  clearDebug() {
+  clearDebug = () => {
     this.setState({debugstring: []});
-  }
+  };
 
-  pushEvent(name: string, value: any) {
+  pushEvent = (name: string, value: any) => {
     this.toDispatch.push({
       type: 'WEB_CHAT/SEND_EVENT',
       payload: {name: name, value: value}
     });
 
     // this.addDebug(`${name}:${value}`);
-  }
+  };
 
-  disableButton(name: string, disable: boolean) {
+  disableButton = (name: string, disable: boolean) => {
     (document.getElementById(name) as HTMLButtonElement).disabled = disable;
-  }
-
-  async getConfig(context: Excel.RequestContext) {
-    const configSheet = context.workbook.worksheets.getFirst();
-    const configRange = configSheet.getUsedRange();
-    configRange.load("values");
-
-    await context.sync();
-
-    let result = new Map();
-    for (let i = 0;i < configRange.values.length;++i) {
-      let element = configRange.values[i];
-      if (element.length < 2) continue;
-      result.set(String(element[0]).toLowerCase(), element[1]);
+    if (disable) {
+      this.toEnable.add(name);
+    } else {
+      this.toEnable.delete(name);
     }
-    return result;
   }
 
   getTokenId = async () => {
@@ -84,7 +76,7 @@ export default class App extends React.Component<AppProps, AppState> {
       }
 
       await Excel.run(async context => {
-        let token = String((await this.getConfig(context)).get(ConfigKeys.WebChatToken));
+        let token = String((await getConfig(context)).get(ConfigKeys.WebChatToken));
         this.setState({ webChatToken: token });
         this.addDebug(token);
       });
@@ -98,17 +90,13 @@ export default class App extends React.Component<AppProps, AppState> {
       this.disableButton(this.buttonSyncConfig, true);
 
       await Excel.run(async context => {
-        let config = await this.getConfig(context);
+        let config = await getConfig(context);
 
         let pushed = false;
         config.forEach((value, key) => {
           switch (key) {
             case ConfigKeys.ResultNumber:
               this.pushEvent(Event.SetResultNumber, Number(value));
-              pushed = true;
-              break;
-            case ConfigKeys.NoResultResponse:
-              this.pushEvent(Event.SetNoResultResponse, String(value));
               pushed = true;
               break;
             case ConfigKeys.MinScore:
@@ -155,7 +143,7 @@ export default class App extends React.Component<AppProps, AppState> {
 
         await context.sync();
 
-        let config = await this.getConfig(context);
+        let config = await getConfig(context);
 
         let qaList = [];
         allRanges.forEach(element => {
@@ -251,7 +239,7 @@ export default class App extends React.Component<AppProps, AppState> {
         }
         this.addDebug(`Total QA: ${data.size}`);
 
-        let key = String((await this.getConfig(context)).get(ConfigKeys.SubscriptionKey));
+        let key = String((await getConfig(context)).get(ConfigKeys.SubscriptionKey));
         const url = `https://westus.api.cognitive.microsoft.com/qnamaker/v4.0/knowledgebases/${id}`;
         let response = await axios.put(url,
           {
@@ -297,7 +285,7 @@ export default class App extends React.Component<AppProps, AppState> {
     this.disableButton(this.buttonCreateQA, true);
     try {
       await Excel.run(async context => {
-        let config = await this.getConfig(context);
+        let config = await getConfig(context);
 
         const url = `https://westus.api.cognitive.microsoft.com/qnamaker/v4.0/knowledgebases/create`;
         let response = await axios.post(url,
@@ -318,7 +306,7 @@ export default class App extends React.Component<AppProps, AppState> {
     }
   };
 
-  async checkCreateQA(config: Map<any, any>, operationId: string) {
+  checkCreateQA = async (config: Map<any, any>, operationId: string) => {
     const url = `https://westus.api.cognitive.microsoft.com/qnamaker/v4.0/operations/${operationId}`;
     let response = await axios.get(url,
       {
@@ -350,7 +338,7 @@ export default class App extends React.Component<AppProps, AppState> {
     } catch (error) {
       this.addDebug(error);
     }
-  }
+  };
 
   clickDoSync = async () => {
     // const toDispatch = this.toDispatch.length;
@@ -358,8 +346,10 @@ export default class App extends React.Component<AppProps, AppState> {
       this.props.store.dispatch(element);
     });
     this.toDispatch = [];
-    this.disableButton(this.buttonSyncConfig, false);
-    this.disableButton(this.buttonSyncQAs, false);
+    this.toEnable.forEach(to => {
+      (document.getElementById(to) as HTMLButtonElement).disabled = false;
+    });
+    this.toEnable.clear();
     // TODO why?
     // setTimeout(() => {this.addDebug(`Sent ${toDispatch} configs.`);}, 1000);
   };
@@ -377,8 +367,12 @@ export default class App extends React.Component<AppProps, AppState> {
 
     return (
       <div>
-        <Debug debugString={this.state.debugstring} clearCb={()=> this.clearDebug()}/>
-        <LgEditor />
+        <Debug debugString={this.state.debugstring} clearCb={this.clearDebug}/>
+        <LgEditor
+          pushEvent={this.pushEvent}
+          clickDoSync={this.clickDoSync}
+          disableButton={this.disableButton}
+          addDebug={this.addDebug}/>
         <div>
           <button id={this.buttonSyncConfig} onClick={this.clickSyncConfig}>Sync Config</button>
           <button id={this.buttonSyncQAs} onClick={this.clickSyncQAs}>Sync QAs</button>

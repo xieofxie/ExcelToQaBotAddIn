@@ -2,8 +2,9 @@ export class Event {
     static SetQnA: string = "SetQnA";
     static SetResultNumber: string = "SetResultNumber";
     static SetMinScore: string = "SetMinScore";
-    static SetNoResultResponse: string = "SetNoResultResponse";
-    static SetDebug:string = "SetDebug";
+    static SetAnswerLg: string = "SetAnswerLg";
+    static SetDebug: string = "SetDebug";
+    static TestAnswerLg: string = "TestAnswerLg";
 }
 
 export class QnAMakerEndpoint {
