@@ -7,6 +7,7 @@ import { ConfigKeys, Status } from '../models/Config';
 import { Event, QnAMakerEndpoint } from '../models/Event';
 import { QnADTO, Source } from "../models/QnAMaker";
 import { Debug } from "./Debug";
+import { LgEditor } from "./LgEditor";
 /* global Button, console, Excel, Header, HeroList, HeroListItem, Progress */
 
 export interface AppProps {
@@ -377,6 +378,7 @@ export default class App extends React.Component<AppProps, AppState> {
     return (
       <div>
         <Debug debugString={this.state.debugstring} clearCb={()=> this.clearDebug()}/>
+        <LgEditor />
         <div>
           <button id={this.buttonSyncConfig} onClick={this.clickSyncConfig}>Sync Config</button>
           <button id={this.buttonSyncQAs} onClick={this.clickSyncQAs}>Sync QAs</button>

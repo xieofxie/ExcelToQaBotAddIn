@@ -44,15 +44,23 @@ export class Debug extends React.Component<AppProps, AppState> {
         return (
             <div>
                 <div>
-                    Debug
-                    <input type="checkbox" checked={isOpened} onChange={({target: {checked}}) => this.setState({isOpened: checked})} />
-                    <input
-                        type="range"
-                        value={height}
-                        step={50}
-                        min={100}
-                        max={1000}
-                        onChange={({target: {value}}) => this.setState({height: parseInt(value, 10)})} />
+                    <div style={{width: "100px", float:"left"}}>
+                        <label>Debug</label>
+                        <input
+                            type="checkbox"
+                            checked={isOpened}
+                            onChange={({target: {checked}}) => this.setState({isOpened: checked})} />
+                    </div>
+                    <div style={{marginLeft: "100px", marginRight: "20px"}}>
+                        <input
+                            type="range"
+                            value={height}
+                            step={20}
+                            min={100}
+                            max={1000}
+                            style={{width:"100%"}}
+                            onChange={({target: {value}}) => this.setState({height: parseInt(value, 10)})} />
+                    </div>
                 </div>
                 <Collapse isOpened={isOpened}>
                     <div>

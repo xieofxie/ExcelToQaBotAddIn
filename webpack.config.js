@@ -4,6 +4,7 @@ const CopyWebpackPlugin = require("copy-webpack-plugin");
 const ExtractTextPlugin = require('extract-text-webpack-plugin');
 const HtmlWebpackPlugin = require("html-webpack-plugin");
 const webpack = require('webpack');
+const MonacoWebpackPlugin = require('monaco-editor-webpack-plugin');
 
 module.exports = async (env, options)  => {
   const dev = options.mode === "development";
@@ -51,6 +52,9 @@ module.exports = async (env, options)  => {
           ]
     },    
     plugins: [
+      new MonacoWebpackPlugin({
+        languages: ['botbuilderlg']
+      }),
       new CleanWebpackPlugin(),
       new CopyWebpackPlugin([
         {
