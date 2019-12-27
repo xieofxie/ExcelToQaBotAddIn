@@ -6,6 +6,7 @@ import ReactWebChat from 'botframework-webchat';
 import { ConfigKeys, Status } from '../models/Config';
 import { Event, QnAMakerEndpoint } from '../models/Event';
 import { QnADTO, Source } from "../models/QnAMaker";
+import { Debug } from "./Debug";
 /* global Button, console, Excel, Header, HeroList, HeroListItem, Progress */
 
 export interface AppProps {
@@ -44,10 +45,6 @@ export default class App extends React.Component<AppProps, AppState> {
   clearDebug() {
     this.setState({debugstring: []});
   }
-
-  clickClearDebug = async () => {
-    this.clearDebug();
-  };
 
   pushEvent(name: string, value: any) {
     this.toDispatch.push({
@@ -378,11 +375,8 @@ export default class App extends React.Component<AppProps, AppState> {
     this.getTokenId();
 
     return (
-      <div className="ms-welcome">
-        <div>Debug<button onClick={this.clickClearDebug}>Clear Debug</button></div>
-        <div>{this.state.debugstring.map((value, index) => {
-          return (<p>{index}: {value}</p>)
-        })}</div>
+      <div>
+        <Debug debugString={this.state.debugstring} clearCb={()=> this.clearDebug()}/>
         <div>
           <button id={this.buttonSyncConfig} onClick={this.clickSyncConfig}>Sync Config</button>
           <button id={this.buttonSyncQAs} onClick={this.clickSyncQAs}>Sync QAs</button>
