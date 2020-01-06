@@ -1,12 +1,11 @@
 import * as React from "react";
 import Progress from "./Progress";
-import { DirectLine } from 'botframework-directlinejs';
-import ReactWebChat from 'botframework-webchat';
 import { ConfigKeys } from '../models/Config';
 import { Event } from '../models/Event';
 import { Debug } from "./Debug";
 import { LgEditor } from "./LgEditor";
 import { QaManager } from "./QaManager";
+import { WebChat } from "./WebChat";
 import { getConfig } from "../utils/Utils";
 /* global Button, console, Excel, Header, HeroList, HeroListItem, Progress */
 
@@ -164,7 +163,7 @@ export default class App extends React.Component<AppProps, AppState> {
           <button id={this.buttonSyncConfig} onClick={this.clickSyncConfig}>Sync Config</button>
           <button id='DoSync' onClick={this.clickDoSync}>Do Sync</button>
         </div>
-        <ReactWebChat directLine={new DirectLine({ token: webChatToken })} userID={this.tempUserId} store={store}/>
+        <WebChat webChatToken={webChatToken} tempUserId={this.tempUserId} store={store} />
       </div>
     );
   }
