@@ -18,6 +18,23 @@ export class Event {
     static SetDebug: string = "SetDebug";
 }
 
+export class SourceType {
+    static Editorial = "Editorial";
+    static File = "File";
+    static Url = "Url";
+}
+
+// TODO use official pacakge
+export class QnADTO {
+    answer: string;
+    questions: string[];
+
+    constructor(answer: string, question: string){
+        this.answer = answer;
+        this.questions = [ question ];
+    }
+}
+
 export class Source {
     Id: string;
     Description: string;
@@ -30,6 +47,12 @@ export class Source {
     }
 }
 
+export class SourceEvent extends Source {
+    KnowledgeBaseId: string;
+    QnaList: QnADTO[];
+}
+
+// TODO use official pacakge
 export class QnAMakerEndpoint {
     knowledgeBaseId: string;
     endpointKey: string;
