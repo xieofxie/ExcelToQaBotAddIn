@@ -5,6 +5,7 @@ export class Event {
     static CreateQnA: string = "CreateQnA";
     static AddQnA: string = "AddQnA";
     static DelQnA: string = "DelQnA";
+    static UpdateQnA: string = "UpdateQnA";
     // Source
     static AddSource: string = "AddSource";
     static DelSource: string = "DelSource";
@@ -22,6 +23,11 @@ export class SourceType {
     static Editorial = "Editorial";
     static File = "File";
     static Url = "Url";
+}
+
+// TODO use official pacakge
+export class CreateKbDTO {
+    name: string;
 }
 
 // TODO use official pacakge
@@ -71,14 +77,4 @@ export class QnAMakerEndpointEx extends QnAMakerEndpoint {
     enable: boolean;
     // Map does not serialize
     sources: { [index: string]: Source; };
-}
-
-export class EnableQnAEvent {
-    KnowledgeBaseId: string;
-    Enable: boolean;
-
-    constructor(KnowledgeBaseId: string = null, Enable: boolean = null) {
-        this.KnowledgeBaseId = KnowledgeBaseId;
-        this.Enable = Enable;
-    }
 }

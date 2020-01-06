@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { Collapse } from 'react-collapse';
-import { EnableQnAEvent, Event, QnADTO, QnAMakerEndpointEx, Source, SourceEvent, SourceType } from '../models/Event';
+import { CreateKbDTO, Event, QnADTO, QnAMakerEndpoint, QnAMakerEndpointEx, Source, SourceEvent, SourceType } from '../models/Event';
 import { Element } from 'react-scroll'
 
 export interface QaManagerProps {
@@ -14,6 +14,14 @@ interface QaManagerState {
     isOpened: boolean;
     // TODO tired of finding working resizable
     height: number;
+}
+
+function InputWithButtonComponent(props: { init:string, button:string, onClick:(name:string)=>void }){
+    const [ name, setName ] = React.useState(props.init);
+    return (<span>
+        <input type="text" value={name} onChange={e=>{setName(e.target.value)}} />
+        <button onClick={()=>{props.onClick(name)}}>{props.button}</button>
+    </span>)
 }
 
 export class QaManager extends React.Component<QaManagerProps, QaManagerState> {
@@ -45,10 +53,13 @@ export class QaManager extends React.Component<QaManagerProps, QaManagerState> {
         const divStyle = {
             border: '1px solid black'
         };
-        return (<div style={divStyle}>Name: {qnA.name} Enabled: {String(qnA.enable)}
+        return (<div style={divStyle}>
             <div>
+                Name: <InputWithButtonComponent init={qnA.name} button='Update' onClick={(name)=>{this.clickUpdateName(qnA.knowledgeBaseId, name)}}/>
+                {qnA.enable?'Enabled':'Disabled'}
                 <button onClick={()=>{this.clickToggleEnable(qnA.knowledgeBaseId, !qnA.enable)}}>{qnA.enable?'Disable':'Enable'}</button>
                 <button onClick={()=>{this.clickSyncToThis(qnA.knowledgeBaseId)}}>Sync To This</button>
+                <button onClick={()=>{this.clickDeleteQA(qnA.knowledgeBaseId)}}>Delete</button>
             </div>
             {Object.values(qnA.sources).map(v => {
                 return <this.SourceItem key={v.Id} knowledgeBaseId={qnA.knowledgeBaseId} source={v}/>;
@@ -56,21 +67,28 @@ export class QaManager extends React.Component<QaManagerProps, QaManagerState> {
         </div>);
     };
 
+    clickCreateQA = (name: string) => {
+        const value = new CreateKbDTO();
+        value.name = name;
+        this.props.pushEvent(Event.CreateQnA, value, true);
+    }
+
     clickGetQAs = () => {
-        try {
-            this.props.pushEvent(Event.GetQnA, null);
-      
-            // TODO why
-            setTimeout(() => {this.props.clickDoSync()}, 1000);
-        } catch (error) {
-            this.props.addDebug(error);
-        }
+        this.props.pushEvent(Event.GetQnA, null, true);
+    };
+
+    clickUpdateName = async (knowledgeBaseId: string, name: string) => {
+        const value = new QnAMakerEndpointEx();
+        value.knowledgeBaseId = knowledgeBaseId;
+        value.name = name;
+        this.props.pushEvent(Event.UpdateQnA, value, true);
     };
 
     clickToggleEnable = async (knowledgeBaseId: string, enable: boolean) => {
-        const value = new EnableQnAEvent(knowledgeBaseId, enable);
-        this.props.pushEvent(Event.EnableQnA, value);
-        setTimeout(() => this.props.clickDoSync(), 1000);
+        const value = new QnAMakerEndpointEx();
+        value.knowledgeBaseId = knowledgeBaseId;
+        value.enable = enable;
+        this.props.pushEvent(Event.EnableQnA, value, true);
     }
 
     clickSyncToThis = async (knowledgeBaseId: string) => {
@@ -123,10 +141,17 @@ export class QaManager extends React.Component<QaManagerProps, QaManagerState> {
                 this.props.pushEvent(Event.AddSource, value);
             });
 
+            // TODO why
             setTimeout(() => {this.props.clickDoSync()}, 1000);
         } catch (error) {
             this.props.addDebug(error);
         }
+    };
+
+    clickDeleteQA = (knowledgeBaseId: string) => {
+        const value = new QnAMakerEndpoint();
+        value.knowledgeBaseId = knowledgeBaseId;
+        this.props.pushEvent(Event.DelQnA, value, true);
     };
 
     clickDeleteSource = async (knowledgeBaseId: string, source: Source) => {
@@ -134,8 +159,7 @@ export class QaManager extends React.Component<QaManagerProps, QaManagerState> {
         value.KnowledgeBaseId = knowledgeBaseId;
         value.Id = source.Id;
         value.Type = source.Type;
-        this.props.pushEvent(Event.DelSource, value);
-        setTimeout(() => this.props.clickDoSync(), 1000);
+        this.props.pushEvent(Event.DelSource, value, true);
     }
 
     render() {
@@ -165,7 +189,7 @@ export class QaManager extends React.Component<QaManagerProps, QaManagerState> {
                 </div>
                 <Collapse isOpened={isOpened}>
                     <div>
-                        <button id={this.buttonCreateQA} onClick={()=>{}}>Create QA</button>
+                        <InputWithButtonComponent init={this.newQAName} button='Create QA' onClick={name=>{this.clickCreateQA(name)}} />
                         <button id={this.buttonGetQAs} onClick={this.clickGetQAs}>Get QAs</button>
                     </div>
                     <div style={{height}}>

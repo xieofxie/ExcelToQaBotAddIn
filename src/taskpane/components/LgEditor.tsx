@@ -77,13 +77,11 @@ export class LgEditor extends React.Component<LgEditorProps, LgEditorState> {
     };
 
     clickTest = async () => {
-        this.props.pushEvent(Event.TestAnswerLg, this.state.code);
-        setTimeout(() => this.props.clickDoSync(), 1000);
+        this.props.pushEvent(Event.TestAnswerLg, this.state.code, true);
     };
 
     clickSyncLg = async () => {
-        this.props.pushEvent(Event.SetAnswerLg, this.state.code);
-        setTimeout(() => this.props.clickDoSync(), 1000);
+        this.props.pushEvent(Event.SetAnswerLg, this.state.code, true);
     };
 
     clickSaveToExcel = async () => {

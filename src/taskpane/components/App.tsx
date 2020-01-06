@@ -60,13 +60,17 @@ export default class App extends React.Component<AppProps, AppState> {
     this.setState({debugstring: []});
   };
 
-  pushEvent = (name: string, value: any) => {
+  pushEvent = (name: string, value: any, sync: boolean = false) => {
     this.toDispatch.push({
       type: 'WEB_CHAT/SEND_EVENT',
       payload: {name: name, value: value}
     });
 
     // this.addDebug(`${name}:${value}`);
+
+    if (sync) {
+      this.clickDoSync();
+    }
   };
 
   getTokenId = async () => {
