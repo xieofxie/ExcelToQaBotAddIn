@@ -1,7 +1,7 @@
 import * as React from 'react';
 import ReactWebChat from 'botframework-webchat';
 import { DirectLine } from 'botframework-directlinejs';
-import {Collapse} from 'react-collapse';
+import { Collapse } from 'react-collapse';
 // TODO only found this working
 import { Element } from 'react-scroll'
 
@@ -22,7 +22,7 @@ export class WebChat extends React.Component<WebChatProps, WebChatState> {
         super(props, context);
         this.state = {
             isOpened: true,
-            height: 100
+            height: 300
         };
     }
 
@@ -53,7 +53,7 @@ export class WebChat extends React.Component<WebChatProps, WebChatState> {
                 </div>
                 <Collapse isOpened={isOpened}>
                     <div style={{height}}>
-                        <Element style={{position: 'relative', height: '100%', overflow: 'scroll'}}>
+                        <Element name='WebChatElement' style={{position: 'relative', height: '100%', overflow: 'scroll'}}>
                             <ReactWebChat className='WebChat' directLine={new DirectLine({ token: webChatToken })} userID={tempUserId} store={store}/>
                         </Element>
                     </div>

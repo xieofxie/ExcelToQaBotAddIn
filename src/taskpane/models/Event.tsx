@@ -46,7 +46,7 @@ export class Source {
     Description: string;
     Type: string;
 
-    constructor(Id: string = null, Description: string = null, Type: string = null) {
+    constructor(Id: string = '', Description: string = '', Type: string = '') {
         this.Id = Id;
         this.Description = Description;
         this.Type = Type;
@@ -64,7 +64,7 @@ export class QnAMakerEndpoint {
     endpointKey: string;
     host: string;
 
-    constructor(id: string = null, key: string = null, host: string = null) {
+    constructor(id: string = '', key: string = '', host: string = '') {
         this.knowledgeBaseId = id;
         this.endpointKey = key;
         this.host = host;

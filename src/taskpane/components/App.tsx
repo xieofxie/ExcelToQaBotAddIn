@@ -1,7 +1,7 @@
 import * as React from "react";
 import Progress from "./Progress";
 import { ConfigKeys } from '../models/Config';
-import { Event } from '../models/Event';
+import { Event, QnADTO, SourceEvent, SourceType } from '../models/Event';
 import { Debug } from "./Debug";
 import { LgEditor } from "./LgEditor";
 import { QaManager } from "./QaManager";
@@ -116,6 +116,63 @@ export default class App extends React.Component<AppProps, AppState> {
     }
   };
 
+  clickSyncToThis = async (knowledgeBaseId: string) => {
+    try {
+      await Excel.run(async context => {
+        let book = context.workbook;
+        book.load('name');
+
+        let sheet = book.worksheets.getActiveWorksheet();
+        sheet.load('position');
+        sheet.load('name');
+
+        let range = sheet.getUsedRange();
+        range.load('values');
+
+        await context.sync();
+
+        if (sheet.position == 0) return;
+
+        let data = new Map<string, QnADTO>();
+        let lastKey: string = null;
+        range.values.forEach(element => {
+            if (element.length < 2) return;
+            // value is question, key is answer
+            let value = String(element[0]);
+            let key = String(element[1]);
+            // use last answer if empty
+            if (key == "") {
+                key = lastKey;
+            }
+            if (data.has(key)) {
+                data.get(key).questions.push(value);
+            } else {
+                data.set(key, new QnADTO(key, value));
+            }
+            lastKey = key;
+        });
+        if (data.size == 0) {
+            return;
+        }
+        this.addDebug(`Total QA: ${data.size}`);
+
+        let value = new SourceEvent();
+        value.KnowledgeBaseId = knowledgeBaseId;
+        value.QnaList = Array.from(data.values());
+        value.Id = sheet.name;
+        value.Description = book.name;
+        value.Type = SourceType.Editorial;
+
+        this.pushEvent(Event.AddSource, value);
+      });
+
+      // TODO why
+      setTimeout(() => {this.clickDoSync()}, 1000);
+    } catch (error) {
+      this.addDebug(error);
+    }
+  };
+
   clickDoSync = async () => {
     // const toDispatch = this.toDispatch.length;
     this.toDispatch.forEach(element => {
@@ -155,6 +212,7 @@ export default class App extends React.Component<AppProps, AppState> {
         />
         <QaManager
           qnAs={qnAs}
+          syncToThis={this.clickSyncToThis}
           pushEvent={this.pushEvent}
           clickDoSync={this.clickDoSync}
           addDebug={this.addDebug}

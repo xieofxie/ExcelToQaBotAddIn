@@ -1,10 +1,11 @@
 import * as React from 'react';
 import { Collapse } from 'react-collapse';
-import { CreateKbDTO, Event, QnADTO, QnAMakerEndpoint, QnAMakerEndpointEx, Source, SourceEvent, SourceType } from '../models/Event';
+import { CreateKbDTO, Event, QnAMakerEndpoint, QnAMakerEndpointEx, Source, SourceEvent } from '../models/Event';
 import { Element } from 'react-scroll'
 
 export interface QaManagerProps {
     qnAs: { [index: string]: QnAMakerEndpointEx },
+    syncToThis: Function,
     pushEvent: Function,
     clickDoSync: Function,
     addDebug: Function,
@@ -33,7 +34,7 @@ export class QaManager extends React.Component<QaManagerProps, QaManagerState> {
         super(props, context);
         this.state = {
             isOpened: true,
-            height: 100,
+            height: 200,
         };
     }
 
@@ -42,14 +43,15 @@ export class QaManager extends React.Component<QaManagerProps, QaManagerState> {
         // this.clickGetQAs();
     }
 
-    SourceItem = (props) => {
+    SourceItem = (props: {knowledgeBaseId: string, source: Source}) => {
         return (<div>
             Id: {props.source.Id} Description: {props.source.Description}
             <button onClick={() => {this.clickDeleteSource(props.knowledgeBaseId, props.source)}}>Delete</button>
         </div>)
     };
 
-    renderQnA = (qnA: QnAMakerEndpointEx) => {
+    QnAItem = (props: {qnA: QnAMakerEndpointEx}) => {
+        const { qnA } = props;
         const divStyle = {
             border: '1px solid black'
         };
@@ -92,60 +94,7 @@ export class QaManager extends React.Component<QaManagerProps, QaManagerState> {
     }
 
     clickSyncToThis = async (knowledgeBaseId: string) => {
-        try {
-            await Excel.run(async context => {
-                let book = context.workbook;
-                book.load('name');
-
-                let sheet = book.worksheets.getActiveWorksheet();
-                sheet.load('position');
-                sheet.load('name');
-
-                let range = sheet.getUsedRange();
-                range.load('values');
-
-                await context.sync();
-
-                if (sheet.position == 0) return;
-
-                let data = new Map<string, QnADTO>();
-                let lastKey: string = null;
-                range.values.forEach(element => {
-                    if (element.length < 2) return;
-                    // value is question, key is answer
-                    let value = String(element[0]);
-                    let key = String(element[1]);
-                    // use last answer if empty
-                    if (key == "") {
-                        key = lastKey;
-                    }
-                    if (data.has(key)) {
-                        data.get(key).questions.push(value);
-                    } else {
-                        data.set(key, new QnADTO(key, value));
-                    }
-                    lastKey = key;
-                });
-                if (data.size == 0) {
-                    return;
-                }
-                this.props.addDebug(`Total QA: ${data.size}`);
-
-                let value = new SourceEvent();
-                value.KnowledgeBaseId = knowledgeBaseId;
-                value.QnaList = Array.from(data.values());
-                value.Id = sheet.name;
-                value.Description = book.name;
-                value.Type = SourceType.Editorial;
-
-                this.props.pushEvent(Event.AddSource, value);
-            });
-
-            // TODO why
-            setTimeout(() => {this.props.clickDoSync()}, 1000);
-        } catch (error) {
-            this.props.addDebug(error);
-        }
+        this.props.syncToThis(knowledgeBaseId);
     };
 
     clickDeleteQA = (knowledgeBaseId: string) => {
@@ -193,8 +142,8 @@ export class QaManager extends React.Component<QaManagerProps, QaManagerState> {
                         <button id={this.buttonGetQAs} onClick={this.clickGetQAs}>Get QAs</button>
                     </div>
                     <div style={{height}}>
-                        <Element style={{position: 'relative', height: '100%', overflow: 'scroll'}}>
-                            {Object.values(qnAs).map(v => { return this.renderQnA(v) })}
+                        <Element name='QaManagerElement' style={{position: 'relative', height: '100%', overflow: 'scroll'}}>
+                            {qnAs && Object.values(qnAs).map(v => { return <this.QnAItem key={v.knowledgeBaseId} qnA={v} /> })}
                         </Element>
                     </div>
                 </Collapse>
