@@ -1,7 +1,7 @@
 import * as React from "react";
 import Progress from "./Progress";
 import { ConfigKeys } from '../models/Config';
-import { Event, QnADTO, SourceEvent, SourceType } from '../models/Event';
+import { Event, QnADTO, SourceEvent, SourceType, UpdateKbOperationDTOAdd } from '../models/Event';
 import { Debug } from "./Debug";
 import { LgEditor } from "./LgEditor";
 import { QaManager } from "./QaManager";
@@ -158,7 +158,8 @@ export default class App extends React.Component<AppProps, AppState> {
 
         let value = new SourceEvent();
         value.KnowledgeBaseId = knowledgeBaseId;
-        value.QnaList = Array.from(data.values());
+        value.DTOAdd = new UpdateKbOperationDTOAdd();
+        value.DTOAdd.qnaList = Array.from(data.values());
         value.Id = sheet.name;
         value.Description = book.name;
         value.Type = SourceType.Editorial;

@@ -41,6 +41,12 @@ export class QnADTO {
     }
 }
 
+// TODO use official pacakge
+export class UpdateKbOperationDTOAdd {
+    qnaList: QnADTO[];
+    urls: string[];
+}
+
 export class Source {
     Id: string;
     Description: string;
@@ -55,7 +61,7 @@ export class Source {
 
 export class SourceEvent extends Source {
     KnowledgeBaseId: string;
-    QnaList: QnADTO[];
+    DTOAdd: UpdateKbOperationDTOAdd;
 }
 
 // TODO use official pacakge
