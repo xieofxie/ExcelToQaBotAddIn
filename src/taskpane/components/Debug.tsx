@@ -66,7 +66,7 @@ export class Debug extends React.Component<DebugProps, DebugState> {
                     <div style={{height}}>
                         <Element style={{position: 'relative', height: '100%', overflow: 'scroll'}}>
                             {this.props.debugString.map((value, index) => {
-                                return (<p>{index}: {value}</p>);
+                                return (<p key={index}>{index}: {value}</p>);
                             })}
                         </Element>
                     </div>

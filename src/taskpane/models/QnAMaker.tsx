@@ -9,7 +9,3 @@ export class QnADTO {
         this.questions = [ question ];
     }
 }
-
-export class Source {
-    static Editorial = "Editorial";
-}

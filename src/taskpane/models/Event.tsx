@@ -1,20 +1,61 @@
 export class Event {
-    static SetQnA: string = "SetQnA";
-    static SetResultNumber: string = "SetResultNumber";
+    // QnA
+    static GetQnA: string = "GetQnA";
+    static EnableQnA: string = "EnableQnA";
+    static CreateQnA: string = "CreateQnA";
+    static AddQnA: string = "AddQnA";
+    static DelQnA: string = "DelQnA";
+    // Source
+    static AddSource: string = "AddSource";
+    static DelSource: string = "DelSource";
+    // Configs
     static SetMinScore: string = "SetMinScore";
+    static SetResultNumber: string = "SetResultNumber";
+    // Answer Lg
     static SetAnswerLg: string = "SetAnswerLg";
-    static SetDebug: string = "SetDebug";
     static TestAnswerLg: string = "TestAnswerLg";
+    // Others
+    static SetDebug: string = "SetDebug";
+}
+
+export class Source {
+    Id: string;
+    Description: string;
+    Type: string;
+
+    constructor(Id: string = null, Description: string = null, Type: string = null) {
+        this.Id = Id;
+        this.Description = Description;
+        this.Type = Type;
+    }
 }
 
 export class QnAMakerEndpoint {
-    KnowledgeBaseId: string;
-    EndpointKey: string;
-    Host: string;
+    knowledgeBaseId: string;
+    endpointKey: string;
+    host: string;
 
-    constructor(id = null, key = null, host = null) {
-        this.KnowledgeBaseId = id;
-        this.EndpointKey = key;
-        this.Host = host;
+    constructor(id: string = null, key: string = null, host: string = null) {
+        this.knowledgeBaseId = id;
+        this.endpointKey = key;
+        this.host = host;
+    }
+}
+
+// TODO special lower case
+export class QnAMakerEndpointEx extends QnAMakerEndpoint {
+    name: string;
+    enable: boolean;
+    // Map does not serialize
+    sources: { [index: string]: Source; };
+}
+
+export class EnableQnAEvent {
+    KnowledgeBaseId: string;
+    Enable: boolean;
+
+    constructor(KnowledgeBaseId: string = null, Enable: boolean = null) {
+        this.KnowledgeBaseId = KnowledgeBaseId;
+        this.Enable = Enable;
     }
 }

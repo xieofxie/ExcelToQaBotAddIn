@@ -11,7 +11,6 @@ import { getConfig } from "../utils/Utils";
 export interface LgEditorProps {
     pushEvent: Function,
     clickDoSync: Function,
-    disableButton: Function,
     addDebug: Function
 }
 
@@ -32,7 +31,7 @@ export class LgEditor extends React.Component<LgEditorProps, LgEditorState> {
     constructor(props: LgEditorProps, context: any) {
         super(props, context);
         this.state = {
-            isOpened: !false,
+            isOpened: false,
             height: 500,
             width: 500,
             code: "# CreateAnswer(results, debug)\r\n- Sample answer."
@@ -78,20 +77,16 @@ export class LgEditor extends React.Component<LgEditorProps, LgEditorState> {
     };
 
     clickTest = async () => {
-        this.props.disableButton(this.buttonTest, true);
         this.props.pushEvent(Event.TestAnswerLg, this.state.code);
         setTimeout(() => this.props.clickDoSync(), 1000);
     };
 
     clickSyncLg = async () => {
-        this.props.disableButton(this.buttonSyncLg, true);
         this.props.pushEvent(Event.SetAnswerLg, this.state.code);
         setTimeout(() => this.props.clickDoSync(), 1000);
     };
 
     clickSaveToExcel = async () => {
-        this.props.disableButton(this.buttonSaveToExcel, true);
-
         try {
             await Excel.run(async context => {
                 const configSheet = context.workbook.worksheets.getFirst();
@@ -120,8 +115,6 @@ export class LgEditor extends React.Component<LgEditorProps, LgEditorState> {
                 }
 
                 await context.sync();
-
-                this.props.disableButton(this.buttonSaveToExcel, false);
             });
         } catch (error) {
             this.props.addDebug(error);

@@ -5,20 +5,29 @@ import { initializeIcons } from "office-ui-fabric-react/lib/Icons";
 import { createStore } from 'botframework-webchat';
 import * as React from "react";
 import * as ReactDOM from "react-dom";
+import { Dispatcher } from "flux";
 /* global AppCpntainer, Component, document, Office, module, require */
 
 initializeIcons();
 
 let isOfficeInitialized = false;
-
-let store = createStore();
-
 const title = "Contoso Task Pane Add-in";
+const eventDispatcher = new Dispatcher();
+
+const store = createStore({},
+  () => next => action => {
+  if (action.type === 'DIRECT_LINE/INCOMING_ACTIVITY') {
+    if (action.payload.activity.type == "event") {
+      eventDispatcher.dispatch(action.payload.activity);
+    }
+  }
+  return next(action);
+});
 
 const render = Component => {
   ReactDOM.render(
     <AppContainer>
-      <Component title={title} isOfficeInitialized={isOfficeInitialized} store={store}/>
+      <Component title={title} isOfficeInitialized={isOfficeInitialized} store={store} eventDispatcher={eventDispatcher}/>
     </AppContainer>,
     document.getElementById("container")
   );
