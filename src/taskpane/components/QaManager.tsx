@@ -1,10 +1,13 @@
 import * as React from 'react';
 import { Collapse } from 'react-collapse';
-import { CreateKbDTO, Event, QnAMakerEndpoint, QnAMakerEndpointEx, Source, SourceEvent } from '../models/Event';
+import { AddSourceEvent, DelSourceEvent, Event, QnAMakerEndpoint, QnAMakerEndpointEx, Source } from '../models/Event';
+import { QnAMakerModels } from '@azure/cognitiveservices-qnamaker';
 import { Element } from 'react-scroll'
+import axios from "axios";
 
 export interface QaManagerProps {
     qnAs: { [index: string]: QnAMakerEndpointEx },
+    fileHostUrl?: string,
     syncToThis: Function,
     pushEvent: Function,
     clickDoSync: Function,
@@ -45,12 +48,13 @@ export class QaManager extends React.Component<QaManagerProps, QaManagerState> {
 
     SourceItem = (props: {knowledgeBaseId: string, source: Source}) => {
         return (<div>
-            Id: {props.source.Id} Description: {props.source.Description}
+            Id: {props.source.id} Description: {props.source.description}
             <button onClick={() => {this.clickDeleteSource(props.knowledgeBaseId, props.source)}}>Delete</button>
         </div>)
     };
 
     QnAItem = (props: {qnA: QnAMakerEndpointEx}) => {
+        const { fileHostUrl } = this.props;
         const { qnA } = props;
         const divStyle = {
             border: '1px solid black'
@@ -60,17 +64,54 @@ export class QaManager extends React.Component<QaManagerProps, QaManagerState> {
                 Name: <InputWithButtonComponent init={qnA.name} button='Update' onClick={(name)=>{this.clickUpdateName(qnA.knowledgeBaseId, name)}}/>
                 {qnA.enable?'Enabled':'Disabled'}
                 <button onClick={()=>{this.clickToggleEnable(qnA.knowledgeBaseId, !qnA.enable)}}>{qnA.enable?'Disable':'Enable'}</button>
-                <button onClick={()=>{this.clickSyncToThis(qnA.knowledgeBaseId)}}>Sync To This</button>
+                <button onClick={()=>{this.clickSyncToThis(qnA.knowledgeBaseId)}}>Add/Update To This</button>
+                {fileHostUrl && <label>Add/Update File To This<input type="file" onChange={(e)=>{this.clickAddFile(qnA.knowledgeBaseId, e)}}/></label>}
                 <button onClick={()=>{this.clickDeleteQA(qnA.knowledgeBaseId)}}>Delete</button>
             </div>
             {Object.values(qnA.sources).map(v => {
-                return <this.SourceItem key={v.Id} knowledgeBaseId={qnA.knowledgeBaseId} source={v}/>;
+                return <this.SourceItem key={v.id} knowledgeBaseId={qnA.knowledgeBaseId} source={v}/>;
             })}
         </div>);
     };
 
+    clickAddFile = async (knowledgeBaseId: string, event: React.ChangeEvent<HTMLInputElement>) => {
+        const { fileHostUrl } = this.props;
+        if (!fileHostUrl) return;
+        if (event.target.files == null) return;
+        const file = event.target.files[0];
+        let response = null;
+        try {
+            response = await axios.post(fileHostUrl,
+                file,
+                {
+                    headers: {
+                        'Content-Type': file.type
+                    },
+                    params: {
+                        name: file.name,
+                        type: file.type
+                    }
+                });
+        } catch (error) {
+            //this.props.addDebug(error);
+        }
+        if (response == null) return;
+
+        let value: AddSourceEvent = {
+            knowledgeBaseId: knowledgeBaseId,
+            filesDescription: [`${file.name} ${String(file.size)}`],
+            files: [{
+                fileName: file.name,
+                fileUri: `${fileHostUrl}?id=${String(response.data)}`
+            }]
+        };
+        this.props.pushEvent(Event.AddSource, value, true);
+    };
+
     clickCreateQA = (name: string) => {
-        const value = new CreateKbDTO();
+        const value: QnAMakerModels.CreateKbDTO = {
+            name: name
+        };
         value.name = name;
         this.props.pushEvent(Event.CreateQnA, value, true);
     }
@@ -104,10 +145,9 @@ export class QaManager extends React.Component<QaManagerProps, QaManagerState> {
     };
 
     clickDeleteSource = async (knowledgeBaseId: string, source: Source) => {
-        const value = new SourceEvent();
-        value.KnowledgeBaseId = knowledgeBaseId;
-        value.Id = source.Id;
-        value.Type = source.Type;
+        const value = new DelSourceEvent();
+        value.knowledgeBaseId = knowledgeBaseId;
+        value.ids = [source.id];
         this.props.pushEvent(Event.DelSource, value, true);
     }
 

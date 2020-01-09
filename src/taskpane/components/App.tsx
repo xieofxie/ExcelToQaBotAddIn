@@ -1,12 +1,13 @@
 import * as React from "react";
 import Progress from "./Progress";
 import { ConfigKeys } from '../models/Config';
-import { Event, QnADTO, SourceEvent, SourceType, UpdateKbOperationDTOAdd } from '../models/Event';
+import { AddSourceEvent, Event } from '../models/Event';
 import { Debug } from "./Debug";
 import { LgEditor } from "./LgEditor";
 import { QaManager } from "./QaManager";
 import { WebChat } from "./WebChat";
 import { getConfig } from "../utils/Utils";
+import { QnAMakerModels } from "@azure/cognitiveservices-qnamaker";
 /* global Button, console, Excel, Header, HeroList, HeroListItem, Progress */
 
 export interface AppProps {
@@ -133,7 +134,7 @@ export default class App extends React.Component<AppProps, AppState> {
 
         if (sheet.position == 0) return;
 
-        let data = new Map<string, QnADTO>();
+        let data = new Map<string, QnAMakerModels.QnADTO>();
         let lastKey: string = null;
         range.values.forEach(element => {
             if (element.length < 2) return;
@@ -147,7 +148,7 @@ export default class App extends React.Component<AppProps, AppState> {
             if (data.has(key)) {
                 data.get(key).questions.push(value);
             } else {
-                data.set(key, new QnADTO(key, value));
+                data.set(key, {answer: key, questions: [value]});
             }
             lastKey = key;
         });
@@ -156,14 +157,12 @@ export default class App extends React.Component<AppProps, AppState> {
         }
         this.addDebug(`Total QA: ${data.size}`);
 
-        let value = new SourceEvent();
-        value.KnowledgeBaseId = knowledgeBaseId;
-        value.DTOAdd = new UpdateKbOperationDTOAdd();
-        value.DTOAdd.qnaList = Array.from(data.values());
-        value.Id = sheet.name;
-        value.Description = book.name;
-        value.Type = SourceType.Editorial;
-
+        let value: AddSourceEvent = {
+          knowledgeBaseId: knowledgeBaseId,
+          qnaListId: sheet.name,
+          qnaListDescription: book.name,
+          qnaList: Array.from(data.values())
+        };
         this.pushEvent(Event.AddSource, value);
       });
 

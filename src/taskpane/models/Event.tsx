@@ -1,3 +1,5 @@
+import { QnAMakerModels } from "@azure/cognitiveservices-qnamaker";
+
 export class Event {
     // QnA
     static GetQnA: string = "GetQnA";
@@ -25,43 +27,29 @@ export class SourceType {
     static Url = "Url";
 }
 
-// TODO use official pacakge
-export class CreateKbDTO {
-    name: string;
-}
-
-// TODO use official pacakge
-export class QnADTO {
-    answer: string;
-    questions: string[];
-
-    constructor(answer: string, question: string){
-        this.answer = answer;
-        this.questions = [ question ];
-    }
-}
-
-// TODO use official pacakge
-export class UpdateKbOperationDTOAdd {
-    qnaList: QnADTO[];
-    urls: string[];
-}
-
 export class Source {
-    Id: string;
-    Description: string;
-    Type: string;
+    id: string;
+    description: string;
+    type: string;
 
     constructor(Id: string = '', Description: string = '', Type: string = '') {
-        this.Id = Id;
-        this.Description = Description;
-        this.Type = Type;
+        this.id = Id;
+        this.description = Description;
+        this.type = Type;
     }
 }
 
-export class SourceEvent extends Source {
-    KnowledgeBaseId: string;
-    DTOAdd: UpdateKbOperationDTOAdd;
+export interface AddSourceEvent extends QnAMakerModels.UpdateKbOperationDTOAdd {
+    knowledgeBaseId: string;
+    qnaListId?: string;
+    qnaListDescription?: string;
+    urlsDescription?: string[];
+    filesDescription?: string[];
+}
+
+export class DelSourceEvent {
+    knowledgeBaseId: string;
+    ids: string[];
 }
 
 // TODO use official pacakge
@@ -76,8 +64,6 @@ export class QnAMakerEndpoint {
         this.host = host;
     }
 }
-
-// TODO special lower case
 export class QnAMakerEndpointEx extends QnAMakerEndpoint {
     name: string;
     enable: boolean;
